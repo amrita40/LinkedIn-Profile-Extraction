@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LinkedIn Profile API — direct HTTP, structured JSON</title>
+<meta name="description" content="Send a LinkedIn profile URL, get back structured JSON. Direct authenticated HTTP requests only — no browser automation." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #12151c;
+    --surface-raised: #1a1e27;
+    --border: #262b36;
+    --border-soft: #1d212a;
+    --text: #e7eaf0;
+    --text-muted: #8a93a6;
+    --text-faint: #565f72;
+    --accent-request: #f2a93b;
+    --accent-2xx: #34d399;
+    --accent-4xx: #f59e0b;
+    --accent-5xx: #f87171;
+    --accent-key: #7dd3fc;
+    --accent-string: #a5d6a7;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  code, pre { font-family: var(--mono); }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- Header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(10, 12, 16, 0.85);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-weight: 600; font-size: 15px; text-decoration: none; }
+  .brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2xx); box-shadow: 0 0 8px var(--accent-2xx); }
+  .navlinks { display: flex; align-items: center; gap: 24px; font-size: 14px; color: var(--text-muted); }
+  .navlinks a { text-decoration: none; transition: color .15s; }
+  .navlinks a:hover { color: var(--text); }
+  #healthBadge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 12px; padding: 5px 10px;
+    border-radius: 999px; border: 1px solid var(--border);
+    color: var(--text-faint);
+  }
+  #healthBadge .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+  #healthBadge.live { color: var(--accent-2xx); border-color: rgba(52,211,153,.35); }
+  #healthBadge.live .pulse { background: var(--accent-2xx); box-shadow: 0 0 6px var(--accent-2xx); }
+  #healthBadge.down { color: var(--accent-5xx); border-color: rgba(248,113,113,.35); }
+  #healthBadge.down .pulse { background: var(--accent-5xx); }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 48px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .06em;
+    color: var(--accent-request); text-transform: uppercase; margin: 0 0 16px;
+  }
+  h1 {
+    font-size: clamp(32px, 4.4vw, 52px); line-height: 1.08; margin: 0 0 18px;
+    font-weight: 700; letter-spacing: -0.02em; max-width: 780px;
+  }
+  h1 .hl { color: var(--accent-2xx); }
+  .sub { color: var(--text-muted); font-size: 17px; max-width: 620px; margin: 0 0 40px; }
+
+  /* ---------- Terminal (signature element) ---------- */
+  .terminal {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  @media (max-width: 820px) { .terminal { grid-template-columns: 1fr; } }
+  .pane { background: var(--surface); display: flex; flex-direction: column; min-height: 340px; }
+  .pane-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border-soft);
+    font-family: var(--mono); font-size: 12px; color: var(--text-faint);
+  }
+  .pane-head .dots { display: flex; gap: 6px; }
+  .pane-head .dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+  .pane-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+
+  .field-label { font-family: var(--mono); font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; }
+  .url-row { display: flex; gap: 8px; }
+  input#urlInput {
+    flex: 1; background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 13.5px;
+    padding: 11px 12px; outline: none; transition: border-color .15s;
+  }
+  input#urlInput:focus { border-color: var(--accent-request); }
+  button#sendBtn {
+    background: var(--accent-request); color: #201404; border: none;
+    font-family: var(--mono); font-weight: 700; font-size: 13px;
+    padding: 0 18px; border-radius: 8px; cursor: pointer; transition: filter .15s;
+    white-space: nowrap;
+  }
+  button#sendBtn:hover { filter: brightness(1.08); }
+  button#sendBtn:disabled { opacity: .55; cursor: default; }
+
+  .curl-box {
+    background: var(--surface-raised); border: 1px solid var(--border-soft); border-radius: 8px;
+    padding: 12px; font-size: 12.5px; color: var(--text-muted); overflow-x: auto; white-space: pre;
+  }
+  .curl-box .m { color: var(--accent-request); }
+
+  .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted); }
+  .toggle-row input { accent-color: var(--accent-request); }
+
+  .settings-toggle { font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); background: none; border: none; cursor: pointer; text-align: left; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+  .settings-panel { display: none; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px dashed var(--border-soft); }
+  .settings-panel.open { display: flex; }
+  .settings-panel input {
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: var(--mono); font-size: 12.5px; padding: 8px 10px; outline: none;
+  }
+
+  #statusLine { font-family: var(--mono); font-size: 12.5px; display: flex; align-items: center; gap: 10px; }
+  #statusLine .code { font-weight: 700; }
+  #statusLine.ok .code { color: var(--accent-2xx); }
+  #statusLine.warn .code { color: var(--accent-4xx); }
+  #statusLine.err .code { color: var(--accent-5xx); }
+  #statusLine .ms { color: var(--text-faint); }
+
+  #responseBox {
+    flex: 1; background: var(--surface-raised); border: 1px solid var(--border-soft); border-radius: 8px;
+    padding: 14px; font-size: 12.5px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+    max-height: 420px; color: var(--text-muted);
+  }
+  #responseBox .k { color: var(--accent-key); }
+  #responseBox .s { color: var(--accent-string); }
+  #responseBox .placeholder { color: var(--text-faint); font-style: normal; }
+
+  /* ---------- Features ---------- */
+  section { padding: 56px 0; border-top: 1px solid var(--border-soft); }
+  h2 { font-size: 22px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .section-sub { color: var(--text-muted); font-size: 14.5px; margin: 0 0 32px; max-width: 560px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .grid4 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .grid4 { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius);
+    padding: 20px; font-size: 13.5px; color: var(--text-muted);
+  }
+  .card .icon { font-family: var(--mono); font-size: 12px; color: var(--accent-2xx); margin-bottom: 12px; }
+  .card h3 { font-size: 14.5px; color: var(--text); margin: 0 0 8px; font-weight: 600; }
+
+  /* ---------- Pipeline ---------- */
+  .pipeline { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding-bottom: 8px; }
+  .pstep { flex: 1; min-width: 148px; position: relative; padding: 18px 16px; background: var(--surface); border: 1px solid var(--border-soft); }
+  .pstep:not(:last-child) { border-right: none; }
+  .pstep:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .pstep:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+  .pstep .n { font-family: var(--mono); font-size: 11px; color: var(--accent-request); margin-bottom: 8px; }
+  .pstep .t { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .pstep .d { font-size: 11.5px; color: var(--text-faint); line-height: 1.4; }
+
+  /* ---------- Schema ---------- */
+  .schema-wrap { background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius); overflow: hidden; }
+  .schema-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border-soft); font-family: var(--mono); font-size: 12px; color: var(--text-faint); }
+  pre.schema { margin: 0; padding: 18px; font-size: 12.5px; overflow-x: auto; color: var(--text-muted); }
+  pre.schema .k { color: var(--accent-key); }
+  pre.schema .s { color: var(--accent-string); }
+  pre.schema .c { color: var(--text-faint); }
+
+  /* ---------- Notice ---------- */
+  .notice {
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.06);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    display: flex; gap: 16px;
+  }
+  .notice .mark {
+    font-family: var(--mono); font-weight: 700; color: var(--accent-4xx); font-size: 13px;
+    flex-shrink: 0; padding-top: 2px;
+  }
+  .notice p { margin: 0 0 10px; font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }
+  .notice p:last-child { margin-bottom: 0; }
+  .notice strong { color: var(--text); }
+
+  /* ---------- Footer ---------- */
+  footer { padding: 32px 0 48px; }
+  .footrow { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 12.5px; color: var(--text-faint); font-family: var(--mono); }
+  .footrow a { text-decoration: none; color: var(--text-muted); }
+  .footrow a:hover { color: var(--text); }
+  .footlinks { display: flex; gap: 20px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a href="#" class="brand"><span class="dot"></span>linkedin-profile-api</a>
+    <div class="navlinks">
+      <a href="#try">Try it</a>
+      <a href="#schema">Schema</a>
+      <a href="#notice">Usage notice</a>
+      <a href="/docs">API docs</a>
+      <span id="healthBadge"><span class="pulse"></span><span id="healthText">checking…</span></span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div class="wrap">
+    <section class="hero" style="border-top:none;">
+      <p class="eyebrow">Direct HTTP · No browser · Structured JSON</p>
+      <h1>Send a profile URL.<br>Get back <span class="hl">JSON</span>, not a scrape.</h1>
+      <p class="sub">This API talks straight to LinkedIn's own internal endpoints over authenticated HTTP requests — the same calls the LinkedIn web app makes. No Playwright, no Selenium, no headless browser at runtime.</p>
+
+      <div class="terminal" id="try">
+        <div class="pane">
+          <div class="pane-head">
+            <span>REQUEST</span>
+            <div class="dots"><span></span><span></span><span></span></div>
+          </div>
+          <div class="pane-body">
+            <div>
+              <div class="field-label" style="margin-bottom:6px;">LinkedIn profile URL</div>
+              <div class="url-row">
+                <input id="urlInput" type="text" placeholder="https://www.linkedin.com/in/example/" autocomplete="off" spellcheck="false" />
+                <button id="sendBtn">SEND →</button>
+              </div>
+            </div>
+
+            <label class="toggle-row">
+              <input type="checkbox" id="contactToggle" />
+              include_contact_info (often privacy-restricted)
+            </label>
+
+            <div>
+              <div class="field-label" style="margin-bottom:6px;">Equivalent curl</div>
+              <div class="curl-box" id="curlBox"></div>
+            </div>
+
+            <button class="settings-toggle" id="settingsToggle">⚙ configure API base URL / key</button>
+            <div class="settings-panel" id="settingsPanel">
+              <input id="baseUrlInput" placeholder="API base URL — defaults to this site (same origin)" />
+              <input id="apiKeyInput" placeholder="X-API-Key (leave blank if the API runs open)" />
+            </div>
+          </div>
+        </div>
+
+        <div class="pane">
+          <div class="pane-head">
+            <span>RESPONSE</span>
+            <span id="statusLine"><span class="placeholder">waiting for request…</span></span>
+          </div>
+          <div class="pane-body">
+            <pre id="responseBox"><span class="placeholder">// paste a LinkedIn profile URL and hit send —
+// this calls your own deployed API, which calls LinkedIn.
+// nothing happens until you do.</span></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>What it does</h2>
+      <p class="section-sub">One call, one normalized schema — designed to stay stable even as LinkedIn's internal API changes underneath it.</p>
+      <div class="grid4">
+        <div class="card">
+          <div class="icon">01</div>
+          <h3>Direct API calls</h3>
+          httpx requests straight to LinkedIn's Voyager endpoints. No browser automation anywhere in the deployed service.
+        </div>
+        <div class="card">
+          <div class="icon">02</div>
+          <h3>Own schema, not a dump</h3>
+          Raw LinkedIn JSON is resolved and reshaped before it ever reaches a client — see the schema below.
+        </div>
+        <div class="card">
+          <div class="icon">03</div>
+          <h3>Graceful gaps</h3>
+          Missing sections (no certifications, no about) return as empty, never as a 500. <code>metadata.status</code> tells you if a result is partial.
+        </div>
+        <div class="card">
+          <div class="icon">04</div>
+          <h3>Cached &amp; rate-limited</h3>
+          Repeat lookups are served from cache; both this API and the upstream session are protected from overuse.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>How a request flows</h2>
+      <p class="section-sub">Six stages, each isolated — the LinkedIn-facing pieces can change without touching the API contract.</p>
+      <div class="pipeline">
+        <div class="pstep"><div class="n">01</div><div class="t">Client</div><div class="d">POST /v1/profile with a URL</div></div>
+        <div class="pstep"><div class="n">02</div><div class="t">FastAPI</div><div class="d">validates + rate-limits</div></div>
+        <div class="pstep"><div class="n">03</div><div class="t">ProfileService</div><div class="d">cache check, orchestration</div></div>
+        <div class="pstep"><div class="n">04</div><div class="t">LinkedInClient</div><div class="d">authenticated httpx call</div></div>
+        <div class="pstep"><div class="n">05</div><div class="t">Parsers</div><div class="d">resolve entity graph</div></div>
+        <div class="pstep"><div class="n">06</div><div class="t">Response</div><div class="d">normalized JSON out</div></div>
+      </div>
+    </section>
+
+    <section id="schema">
+      <h2>Response schema</h2>
+      <p class="section-sub">Every field degrades to <code>null</code> or <code>[]</code> rather than failing the request. Full docs at <a href="/docs">/docs</a>.</p>
+      <div class="schema-wrap">
+        <div class="schema-head"><span>200 OK</span><span>application/json</span></div>
+        <pre class="schema"><span class="c">{</span>
+  <span class="k">"success"</span>: true,
+  <span class="k">"data"</span>: <span class="c">{</span>
+    <span class="k">"profile"</span>: <span class="c">{</span> <span class="k">"name"</span>, <span class="k">"headline"</span>, <span class="k">"location"</span>, <span class="k">"about"</span>, … <span class="c">}</span>,
+    <span class="k">"images"</span>: <span class="c">{</span> <span class="k">"profile"</span>, <span class="k">"background"</span> <span class="c">}</span>,
+    <span class="k">"experience"</span>: <span class="c">[</span> <span class="c">{</span> <span class="k">"title"</span>, <span class="k">"company"</span>, <span class="k">"start_date"</span>, … <span class="c">}</span> <span class="c">]</span>,
+    <span class="k">"education"</span>: <span class="c">[</span> <span class="c">{</span> <span class="k">"institution"</span>, <span class="k">"degree"</span>, … <span class="c">}</span> <span class="c">]</span>,
+    <span class="k">"skills"</span>: <span class="c">[</span> <span class="s">"Python"</span>, <span class="s">"Distributed Systems"</span> <span class="c">]</span>,
+    <span class="k">"certifications"</span>: <span class="c">[</span> … <span class="c">]</span>,
+    <span class="k">"languages"</span>: <span class="c">[</span> … <span class="c">]</span>,
+    <span class="k">"contact_info"</span>: null
+  <span class="c">}</span>,
+  <span class="k">"metadata"</span>: <span class="c">{</span> <span class="k">"status"</span>: <span class="s">"complete"</span>, <span class="k">"missing_sections"</span>: <span class="c">[]</span>, <span class="k">"cached"</span>: false <span class="c">}</span>
+<span class="c">}</span></pre>
+      </div>
+    </section>
+
+    <section id="notice">
+      <h2>Usage notice</h2>
+      <div class="notice">
+        <div class="mark">!</div>
+        <div>
+          <p><strong>This project uses direct, authenticated HTTP requests only — never a browser.</strong> The deployed service makes plain <code>httpx</code> calls to LinkedIn's own internal endpoints, replaying the session cookies from one authorized, human login. Nothing here scripts a login, solves a CAPTCHA, or drives a headless browser.</p>
+          <p>It authenticates as a specific LinkedIn account and can only see what that account can see. Reusing a session this way is against LinkedIn's User Agreement, and LinkedIn has pursued legal action against scraping tools before — that risk belongs to whoever's session is configured, not to a visitor of this page.</p>
+          <p>This page never touches LinkedIn directly. It only calls the API endpoint below, which is under your control.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap footrow">
+    <span>LinkedIn Profile API · reverse-engineered Voyager client</span>
+    <div class="footlinks">
+      <a href="/docs">/docs</a>
+      <a href="/health">/health</a>
+      <a href="/api">/api</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  const urlInput = document.getElementById('urlInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const curlBox = document.getElementById('curlBox');
+  const statusLine = document.getElementById('statusLine');
+  const responseBox = document.getElementById('responseBox');
+  const contactToggle = document.getElementById('contactToggle');
+  const settingsToggle = document.getElementById('settingsToggle');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const baseUrlInput = document.getElementById('baseUrlInput');
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const healthBadge = document.getElementById('healthBadge');
+  const healthText = document.getElementById('healthText');
+
+  // Settings persist locally in the browser only — never sent anywhere but
+  // to the API base URL the visitor configures.
+  baseUrlInput.value = localStorage.getItem('lpa_base_url') || '';
+  apiKeyInput.value = localStorage.getItem('lpa_api_key') || '';
+  baseUrlInput.addEventListener('input', () => { localStorage.setItem('lpa_base_url', baseUrlInput.value); updateCurl(); });
+  apiKeyInput.addEventListener('input', () => { localStorage.setItem('lpa_api_key', apiKeyInput.value); updateCurl(); });
+
+  settingsToggle.addEventListener('click', () => settingsPanel.classList.toggle('open'));
+
+  function apiBase() {
+    return (baseUrlInput.value || '').trim().replace(/\/$/, '');
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  }
+
+  function highlightJson(obj) {
+    const json = JSON.stringify(obj, null, 2);
+    const escaped = escapeHtml(json);
+    return escaped
+      .replace(/(&quot;[\w_]+&quot;)(\s*:)/g, '<span class="k">$1</span>$2')
+      .replace(/: (&quot;.*?&quot;)/g, ': <span class="s">$1</span>');
+  }
+
+  function updateCurl() {
+    const url = urlInput.value.trim() || 'https://www.linkedin.com/in/example/';
+    const base = apiBase() || '(this site)';
+    const key = apiKeyInput.value.trim();
+    const qs = contactToggle.checked ? '?include_contact_info=true' : '';
+    let cmd = `curl -X POST <span class="m">${base}</span>/v1/profile${qs} \\\n  -H "Content-Type: application/json"`;
+    if (key) cmd += ` \\\n  -H "X-API-Key: ${escapeHtml(key)}"`;
+    cmd += ` \\\n  -d '{"url": "${escapeHtml(url)}"}'`;
+    curlBox.innerHTML = cmd;
+  }
+
+  urlInput.addEventListener('input', updateCurl);
+  contactToggle.addEventListener('change', updateCurl);
+  updateCurl();
+
+  function setStatus(cls, code, ms) {
+    statusLine.className = cls;
+    statusLine.innerHTML = `<span class="code">${code}</span><span class="ms">${ms}</span>`;
+  }
+
+  async function checkHealth() {
+    try {
+      const res = await fetch((apiBase() || '') + '/health', { method: 'GET' });
+      if (res.ok) {
+        const body = await res.json();
+        healthBadge.className = 'live';
+        healthText.textContent = body.linkedin_session_configured ? 'API live' : 'API live · no session configured';
+      } else {
+        throw new Error('unhealthy');
+      }
+    } catch (e) {
+      healthBadge.className = 'down';
+      healthText.textContent = 'API unreachable';
+    }
+  }
+  checkHealth();
+  baseUrlInput.addEventListener('change', checkHealth);
+
+  sendBtn.addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    if (!url) {
+      responseBox.innerHTML = '<span class="placeholder">// enter a LinkedIn profile URL first</span>';
+      return;
+    }
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'SENDING…';
+    setStatus('', 'pending', '');
+    responseBox.innerHTML = '<span class="placeholder">// waiting on response…</span>';
+
+    const started = performance.now();
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKeyInput.value.trim()) headers['X-API-Key'] = apiKeyInput.value.trim();
+      const qs = contactToggle.checked ? '?include_contact_info=true' : '';
+      const res = await fetch(apiBase() + '/v1/profile' + qs, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ url }),
+      });
+      const ms = Math.round(performance.now() - started) + 'ms';
+      const body = await res.json();
+
+      if (res.status >= 200 && res.status < 300) setStatus('ok', res.status + ' OK', ms);
+      else if (res.status < 500) setStatus('warn', res.status, ms);
+      else setStatus('err', res.status, ms);
+
+      responseBox.innerHTML = highlightJson(body);
+    } catch (err) {
+      setStatus('err', 'network error', '');
+      responseBox.innerHTML = '<span class="placeholder">// could not reach the API — check the base URL under ⚙ settings, and that the server is running.</span>';
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'SEND →';
+    }
+  });
+
+  urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendBtn.click();
+  });
+})();
+</script>
+
+</body>
+</html>

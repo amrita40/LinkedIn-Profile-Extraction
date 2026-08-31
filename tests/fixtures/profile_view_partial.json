@@ -1,0 +1,15 @@
+{
+  "data": {
+    "publicIdentifier": "john-minimal"
+  },
+  "included": [
+    {
+      "entityUrn": "urn:li:fs_profile:ACoAAAMinimal",
+      "$type": "com.linkedin.voyager.identity.profile.Profile",
+      "firstName": "John",
+      "lastName": "Minimal",
+      "headline": "Looking for opportunities",
+      "publicIdentifier": "john-minimal"
+    }
+  ]
+}

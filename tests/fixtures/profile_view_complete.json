@@ -1,0 +1,81 @@
+{
+  "data": {
+    "publicIdentifier": "jane-doe-example"
+  },
+  "included": [
+    {
+      "entityUrn": "urn:li:fs_profile:ACoAAAExample",
+      "$type": "com.linkedin.voyager.identity.profile.Profile",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "headline": "Senior Software Engineer at Example Corp",
+      "geoLocationName": "Bengaluru, Karnataka, India",
+      "industryName": "Software Development",
+      "summary": "Backend engineer focused on distributed systems and developer tooling.",
+      "publicIdentifier": "jane-doe-example",
+      "profilePicture": {
+        "displayImageReference": {
+          "vectorImage": {
+            "rootUrl": "https://media.licdn.com/dms/image/root/",
+            "artifacts": [
+              {"width": 100, "fileIdentifyingUrlPathSegment": "100x100.jpg"},
+              {"width": 400, "fileIdentifyingUrlPathSegment": "400x400.jpg"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "entityUrn": "urn:li:fs_position:1",
+      "$type": "com.linkedin.voyager.identity.profile.Position",
+      "title": "Senior Software Engineer",
+      "companyName": "Example Corp",
+      "locationName": "Bengaluru, India",
+      "employmentType": "Full-time",
+      "description": "Leading backend platform initiatives.",
+      "timePeriod": {"startDate": {"year": 2023, "month": 6}}
+    },
+    {
+      "entityUrn": "urn:li:fs_position:2",
+      "$type": "com.linkedin.voyager.identity.profile.Position",
+      "title": "Software Engineer",
+      "companyName": "Prior Co",
+      "locationName": "Remote",
+      "employmentType": "Full-time",
+      "description": "Built internal tooling.",
+      "timePeriod": {"startDate": {"year": 2021, "month": 1}, "endDate": {"year": 2023, "month": 5}}
+    },
+    {
+      "entityUrn": "urn:li:fs_education:1",
+      "$type": "com.linkedin.voyager.identity.profile.Education",
+      "schoolName": "Example Institute of Technology",
+      "degreeName": "B.Tech",
+      "fieldOfStudy": "Computer Engineering",
+      "timePeriod": {"startDate": {"year": 2017}, "endDate": {"year": 2021}}
+    },
+    {
+      "entityUrn": "urn:li:fs_skill:1",
+      "$type": "com.linkedin.voyager.identity.profile.Skill",
+      "name": "Python"
+    },
+    {
+      "entityUrn": "urn:li:fs_skill:2",
+      "$type": "com.linkedin.voyager.identity.profile.Skill",
+      "name": "Distributed Systems"
+    },
+    {
+      "entityUrn": "urn:li:fs_certification:1",
+      "$type": "com.linkedin.voyager.identity.profile.Certification",
+      "name": "Certified Kubernetes Administrator",
+      "authority": "The Linux Foundation",
+      "url": "https://example.org/verify/123",
+      "timePeriod": {"startDate": {"year": 2022, "month": 9}}
+    },
+    {
+      "entityUrn": "urn:li:fs_language:1",
+      "$type": "com.linkedin.voyager.identity.profile.Language",
+      "name": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
+  ]
+}
